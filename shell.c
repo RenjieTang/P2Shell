@@ -2,27 +2,125 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 
 int counter = 1;
+
+void exitCommand(char** args) {
+	exit(0);
+}
+
+int cdCommand(char** args) {
+	int ret = 0;
+	if(args[2] != NULL) {
+		fprintf(stderr, "error\n");
+		return 1;
+	}
+	else if(args[1] == NULL) {
+		ret = chdir(getenv("HOME"));
+	}
+	else {
+		ret = chdir(args[1]);
+	}
+
+	if(ret == -1) {
+		fprintf(stderr, "error\n");
+	}
+
+	return 0;
+}
+
+int pwdCommand(char** args) {
+	if(args[1] != NULL) {
+		fprintf(stderr, "error\n");
+		return 1;
+	}
+	size_t size = 4096;
+	char buffer[size];
+	if(getcwd(buffer, size) == NULL) {
+		fprintf(stderr, "error\n");
+		return 1;
+	}
+	
+	printf("%s\n", buffer);
+
+	return 0;
+}
+
+int madeCommands(char** args) {
+	if(strcmp(args[0], "exit") == 0) {
+		exitCommand(args);
+	}
+	else{
+		int rc = fork();
+		if(rc < 0) {
+			fprintf(stderr, "error\n");
+			//TODO;
+			exit(1);
+		}
+		else if (rc == 0) {
+			int ret = 0;
+			if(strcmp(args[0], "pwd") == 0) {
+				ret = pwdCommand(args);
+			}
+			else {
+				ret = cdCommand(args);
+			}
+			return ret;
+		}
+		else {
+			waitpid(rc, NULL, 0);
+			return 0;
+		}
+	}
+	return 0;
+}
+
+int existedCommands(char** args) {
+	int rc = fork();
+	if(rc < 0) {
+		fprintf(stderr, "error\n");
+		//TODO;
+		exit(1);
+	}
+	else if (rc == 0) {
+		char filename[128];
+		strcpy(filename, "/bin/");
+		strcat(filename, args[0]);
+		printf("file name is %s\n", filename);
+		int rt = execvp(filename,args);
+		fprintf(stderr, "error %d\n", rt); //look up perror
+		return 0;
+	}
+	else {
+		waitpid(rc, NULL, 0);
+		return 0;
+	}
+	
+}
 
 int loop() {
 	char* input = (char*) malloc(128);
 	char* savedCom = (char*) malloc(128);
 
 	while(1) {
-		int builtIn = 0;
+		int builtIn = 1;
 		memset(input,0,128);
 		printf("mysh (%d)> ", counter);
 		if(fgets(input,128,stdin) == NULL) {
 			fprintf(stderr,"error\n");
 			return 1;
 		}
+
+		char* pos = strchr(input,'\n');
+		*pos = '\0';
+
 		printf("intput is %s\n", input);
 		char* tempInput = (char*) malloc(128);
 		strcpy(tempInput,input);
 		char* com = strtok_r(tempInput, " ", &savedCom);
 		if(strcmp(com, "pwd") == 0 || strcmp(com, "cd") == 0 || strcmp(com, "exit") == 0) {
-			builtIn = 1;
+			builtIn = 0;
 		}
 		int length = 0;
 		while(com != NULL) {
@@ -38,33 +136,25 @@ int loop() {
 
 		com = strtok_r(input, " ", &savedCom);
 		strcpy(args[0], com);
-		// int curr = 1;
-		// while(com != NULL) {
-		// 	com = strtok_r(NULL, " ", &savedCom);
-		// 	strcpy(args[curr], com);
-		// 	curr++;
-		// }
 		for(int i = 1; i < length; i++) {
 			com = strtok_r(NULL, " ", &savedCom);
 			strcpy(args[i], com);
 		}
 		args[length] = NULL;
-		for(int i = 0; i < length+1; i++) {
-			printf("the command is %s\n", args[i]);
+
+
+		if(builtIn == 1) {
+			existedCommands(args);
 		}
-		// for (int i = 0; i < 20; i++) {
-		printf("savedCom is %s\n", savedCom);
-
+		else {
+			madeCommands(args);
+		}
+		// for(int i = 0; i < length+1; i++) {
+		// 	printf("the command is %s\n", args[i]);
 		// }
 
 
-	
-		// while(com != NULL) {
-		// 	com = strtok_r(NULL, " ", savedCom);
-		// 	printf("com is %s\n", com);
-		// 	printf("savedCom is %s\n", savedCom[0]);
-		// 	curr++;
-		// }
+		//TODO: Handle only enter
 	 	counter++;
 	}
 
