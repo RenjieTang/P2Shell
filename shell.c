@@ -34,18 +34,21 @@ int cdCommand(char** args) {
 }
 
 int pwdCommand(char** args) {
+	printf("pwd called\n");
 	if(args[1] != NULL) {
 		fprintf(stderr, "error\n");
 		return 1;
 	}
 	size_t size = 4096;
 	char buffer[size];
+	memset(buffer, 0, 4096);
 	if(getcwd(buffer, size) == NULL) {
 		fprintf(stderr, "error\n");
 		return 1;
 	}
+	strcat(buffer, "\n");
 	
-	printf("%s\n", buffer);
+	write(STDOUT_FILENO, buffer, 4096);
 
 	return 0;
 }
@@ -62,6 +65,13 @@ int madeCommands(char** args, int length) {
 			exit(1);
 		}
 		else if (rc == 0) {
+			if(length >= 3 && strcmp(args[length-2],">") == 0) {
+				printf("I am in \n");
+				int out = open(args[length-1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+				dup2(out, 1);
+				args[length-2] = NULL;
+				close(out);
+			}
 			int ret = 0;
 			if(strcmp(args[0], "pwd") == 0) {
 				ret = pwdCommand(args);
@@ -69,7 +79,7 @@ int madeCommands(char** args, int length) {
 			else {
 				ret = cdCommand(args);
 			}
-			return ret;
+			exit(ret);
 		}
 		else {
 			waitpid(rc, NULL, 0);
@@ -91,7 +101,7 @@ int existedCommands(char** args, int length) {
 		strcpy(filename, "/bin/");
 		strcat(filename, args[0]);
 		printf("file name is %s\n", filename);
-		if(strcmp(args[length-2],">") == 0) {
+		if(length >= 3 && strcmp(args[length-2],">") == 0) {
 			printf("I am in\n");
 			int out = open(args[length-1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
 			dup2(out,1);
@@ -100,7 +110,7 @@ int existedCommands(char** args, int length) {
 		}
 		int rt = execvp(filename,args);
 		fprintf(stderr, "error %d\n", rt); //look up perror
-		return 0;
+		exit(0);
 	}
 	else {
 		waitpid(rc, NULL, 0);
