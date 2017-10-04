@@ -12,15 +12,15 @@ int counter = 1;
 int buildRedir(char** args, int length) {
 	int less = -1;
 	int more = -1;
-	int errFlag = 0;
+	//int errFlag = 0;
 	for(int i = 0; i < length; i++) {
-		if(strcmp(arg[i], "<") == 0) {
+		if(strcmp(args[i], "<") == 0) {
 			if(less != -1) {
 				return 1;
 			}
 			less = i;
 		}
-		else if(strcmp(arg[i], ">") == 0) {
+		else if(strcmp(args[i], ">") == 0) {
 			if(more != -1) {
 				return 1;
 			}
@@ -28,7 +28,7 @@ int buildRedir(char** args, int length) {
 		}
 	}
 	if(less == -1 && more == -1) {
-		return;
+		return 0;
 	}
 	else if(less != -1 && more == -1) {
 		if(less != length-2) {
@@ -36,6 +36,11 @@ int buildRedir(char** args, int length) {
 		}
 		else {
 			int in = open(args[length-1],O_RDONLY);
+			if (in < 0) {
+				//error
+				close(in);
+				return 1;
+			}
 			dup2(in, 0);
 			args[length-2] = NULL;
 			close(in);
@@ -68,11 +73,16 @@ int buildRedir(char** args, int length) {
 		}
 		int in = open(args[less+1],O_RDONLY);
 		dup2(in, 0);
+		if (in < 0) {
+			//error
+			close(in);
+			return 1;
+		}
 		int out = open(args[more+1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
 		dup2(out, 1);		
 		close(in);
 		close(out);
-		args[less] = NULL;
+		args[min] = NULL;
 	}
 	return 0;
 }
@@ -173,22 +183,28 @@ int existedCommands(char** args, int length) {
 		// strcpy(filename, "/bin/");
 		// strcat(filename, args[0]);
 		// printf("file name is %s\n", filename);
-		if(length >= 3 && strcmp(args[length-2],">") == 0) {
-			printf("I am in\n");
-			int out = open(args[length-1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
-			dup2(out,1);
-			args[length-2] = NULL;
-			close(out);
+		// if(length >= 3 && strcmp(args[length-2],">") == 0) {
+		// 	printf("I am in\n");
+		// 	int out = open(args[length-1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+		// 	dup2(out,1);
+		// 	args[length-2] = NULL;
+		// 	close(out);
+		// }
+		// if(length >= 3 && strcmp(args[length-2], "<") == 0) {
+		// 	int in = open(args[length-1],O_RDONLY);
+		// 	dup2(in,0);
+		// 	args[length-2] = NULL;
+		// 	close(in);
+		// }
+		if(buildRedir(args, length) == 1) {
+			fprintf(stderr, "error\n");
 		}
-		if(length >= 3 && strcmp(args[length-2], "<") == 0) {
-			int in = open(args[length-1],O_RDONLY);
-			dup2(in,0);
-			args[length-2] = NULL;
-			close(in);
+		else{
+			int rt = execvp(args[0],args);
+			fprintf(stderr, "error %d\n", rt);
+			perror("Error message: "); //look up perror
 		}
-		int rt = execvp(args[0],args);
-		fprintf(stderr, "error %d\n", rt);
-		perror("Error message: "); //look up perror
+
 		exit(0);
 	}
 	else {
@@ -213,6 +229,12 @@ int loop() {
 
 		char* pos = strchr(input,'\n');
 		*pos = '\0';
+
+		for(int i = 0; i < 128; i++) {
+			if(input[i] == '\t') {
+				input[i] = ' ';
+			}
+		}
 
 		printf("intput is %s\n", input);
 		char* tempInput = (char*) malloc(128);
