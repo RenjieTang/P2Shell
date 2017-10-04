@@ -47,7 +47,7 @@ int pwdCommand(char** args) {
 	return 0;
 }
 
-int madeCommands(char** args) {
+int madeCommands(char** args, int length) {
 	if(strcmp(args[0], "exit") == 0) {
 		exitCommand(args);
 	}
@@ -76,7 +76,7 @@ int madeCommands(char** args) {
 	return 0;
 }
 
-int existedCommands(char** args) {
+int existedCommands(char** args, int length) {
 	int rc = fork();
 	if(rc < 0) {
 		fprintf(stderr, "error\n");
@@ -144,10 +144,10 @@ int loop() {
 
 
 		if(builtIn == 1) {
-			existedCommands(args);
+			existedCommands(args, length);
 		}
 		else {
-			madeCommands(args);
+			madeCommands(args, length);
 		}
 		// for(int i = 0; i < length+1; i++) {
 		// 	printf("the command is %s\n", args[i]);
