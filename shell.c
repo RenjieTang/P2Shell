@@ -9,6 +9,74 @@
 
 int counter = 1;
 
+int buildRedir(char** args, int length) {
+	int less = -1;
+	int more = -1;
+	int errFlag = 0;
+	for(int i = 0; i < length; i++) {
+		if(strcmp(arg[i], "<") == 0) {
+			if(less != -1) {
+				return 1;
+			}
+			less = i;
+		}
+		else if(strcmp(arg[i], ">") == 0) {
+			if(more != -1) {
+				return 1;
+			}
+			more = i;
+		}
+	}
+	if(less == -1 && more == -1) {
+		return;
+	}
+	else if(less != -1 && more == -1) {
+		if(less != length-2) {
+			return 1;
+		}
+		else {
+			int in = open(args[length-1],O_RDONLY);
+			dup2(in, 0);
+			args[length-2] = NULL;
+			close(in);
+		}
+	}
+	else if(less == -1 && more != -1) {
+		if(more != length-2) {
+			return 1;
+		}
+		else {
+			int out = open(args[length-1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+			dup2(out, 1);
+			args[length-2] = NULL;
+			close(out);
+		}
+	}
+	else {
+		int max = -1;
+		int min = -1;
+		if(less > more) {
+			max = less;
+			min = more;
+		}
+		else {
+			max = more;
+			min = less;
+		}
+		if(max-min != 2 || args[max+2] != NULL) {
+			return 1;
+		}
+		int in = open(args[less+1],O_RDONLY);
+		dup2(in, 0);
+		int out = open(args[more+1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+		dup2(out, 1);		
+		close(in);
+		close(out);
+		args[less] = NULL;
+	}
+	return 0;
+}
+
 void exitCommand(char** args) {
 	exit(0);
 }
@@ -47,8 +115,11 @@ int pwdCommand(char** args) {
 		return 1;
 	}
 	strcat(buffer, "\n");
+	int len = strlen(buffer);
 	
-	write(STDOUT_FILENO, buffer, 4096);
+	if(write(STDOUT_FILENO, buffer, len) == -1) {
+		fprintf(stderr, "error\n");
+	}
 
 	return 0;
 }
@@ -72,6 +143,7 @@ int madeCommands(char** args, int length) {
 				args[length-2] = NULL;
 				close(out);
 			}
+
 			int ret = 0;
 			if(strcmp(args[0], "pwd") == 0) {
 				ret = pwdCommand(args);
@@ -97,10 +169,10 @@ int existedCommands(char** args, int length) {
 		exit(1);
 	}
 	else if (rc == 0) {
-		char filename[128];
-		strcpy(filename, "/bin/");
-		strcat(filename, args[0]);
-		printf("file name is %s\n", filename);
+		// char filename[128];
+		// strcpy(filename, "/bin/");
+		// strcat(filename, args[0]);
+		// printf("file name is %s\n", filename);
 		if(length >= 3 && strcmp(args[length-2],">") == 0) {
 			printf("I am in\n");
 			int out = open(args[length-1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
@@ -108,8 +180,15 @@ int existedCommands(char** args, int length) {
 			args[length-2] = NULL;
 			close(out);
 		}
-		int rt = execvp(filename,args);
-		fprintf(stderr, "error %d\n", rt); //look up perror
+		if(length >= 3 && strcmp(args[length-2], "<") == 0) {
+			int in = open(args[length-1],O_RDONLY);
+			dup2(in,0);
+			args[length-2] = NULL;
+			close(in);
+		}
+		int rt = execvp(args[0],args);
+		fprintf(stderr, "error %d\n", rt);
+		perror("Error message: "); //look up perror
 		exit(0);
 	}
 	else {
