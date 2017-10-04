@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 int counter = 1;
 
@@ -88,6 +91,13 @@ int existedCommands(char** args, int length) {
 		strcpy(filename, "/bin/");
 		strcat(filename, args[0]);
 		printf("file name is %s\n", filename);
+		if(strcmp(args[length-2],">") == 0) {
+			printf("I am in\n");
+			int out = open(args[length-1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+			dup2(out,1);
+			args[length-2] = NULL;
+			close(out);
+		}
 		int rt = execvp(filename,args);
 		fprintf(stderr, "error %d\n", rt); //look up perror
 		return 0;
