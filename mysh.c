@@ -351,7 +351,7 @@ int loop() {
 		//sleep(1);
 		struct timespec tim, tim2;
    		tim.tv_sec = 0;
-   		tim.tv_nsec = 5000000L;
+   		tim.tv_nsec = 50000L;
    		nanosleep(&tim, &tim2);
 
    		int status = -1;
