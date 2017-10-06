@@ -90,6 +90,12 @@ int buildRedir(char** args, int length) {
 }
 
 void exitCommand(char** args) {
+	for (int i = 0; i < 20; i++) {
+	//	printf("process id is %d\n", processes[i] );
+		if(processes[i] != -1) {
+			kill(processes[i], 1);
+		}
+	}																
 	exit(0);
 }
 
@@ -189,7 +195,10 @@ int existedCommands(char** args, int length) {
 	if(strcmp(args[length-1],"&") == 0) {
 		background = 1;
 		args[length-1] = NULL;
+		length = length-1;
 	}
+
+
 	int rc = fork();
 	if(rc < 0) {
 		char error_message[30] = "An error has occurred\n";
@@ -217,6 +226,7 @@ int existedCommands(char** args, int length) {
 		// }
 		int vb = -1;
 		for(int i = 0; i < length; i++) {
+
 			if(strcmp(args[i],"|") == 0 ) {
 				if(vb != -1) {
 					char error_message[30] = "An error has occurred\n";
@@ -228,18 +238,22 @@ int existedCommands(char** args, int length) {
 		} 
 
 		
-
+	//	printf("vb is !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!%d\n", vb);
 
 		if(vb == -1) {
 			if(buildRedir(args, length) == 1) {
 				char error_message[30] = "An error has occurred\n";
 				write(STDERR_FILENO, error_message, strlen(error_message));
+				exit(1);
 			}
 			else{
+
 				int rt = execvp(args[0], args);
+				//printf("This command is excuted \n");
 				if(rt == -1) {
 					char error_message[30] = "An error has occurred\n";
 					write(STDERR_FILENO, error_message, strlen(error_message));
+					exit(1);
 				}	
 			}
 		}
@@ -275,7 +289,11 @@ int existedCommands(char** args, int length) {
 					write(STDERR_FILENO, error_message, strlen(error_message));
 					exit(1);
 				}
-				exit(0);
+				// for(int i = 0; i < length+1; i++) {
+				// 	free(args[i]);
+				// }
+				// free(args);
+				//exit(0);
 			}
 			else {
 				// printf("args0 %s\n", args[0]);
@@ -291,20 +309,32 @@ int existedCommands(char** args, int length) {
 					char error_message[30] = "An error has occurred\n";
 					write(STDERR_FILENO, error_message, strlen(error_message));
 				}
-				waitpid(cpid, NULL, 0);
+				// for(int i = 0; i < 20; i++) {
+				// 	if(processes[i] == -1) {
+				// 		processes[i] = cpid;
+				// 		break;
+				// 	}
+				// }
+				// printf("This line is executed\n");
+				// waitpid(cpid, NULL, 0);
 			}
 		}
-		exit(0);
+		//exit(0);
 	}
 	else {
 		for(int i = 0; i < 20; i++) {
 			if(processes[i] == -1) {
 				processes[i] = rc;
+			//	printf("process id is %d\n", processes[i]);
+				break;
 			}
 		}
 		if(background == 0) {
 			waitpid(rc, NULL, 0);
 		}
+		// else {
+		// 	waitpid(rc, NULL, 0);
+		// }
 		return 0;
 	}
 	
@@ -324,8 +354,18 @@ int loop() {
    		tim.tv_nsec = 5000000L;
    		nanosleep(&tim, &tim2);
 
+   		int status = -1;
    		for(int i = 0; i < 20; i++) {
-   			waitpid(processes[i], NULL, WNOHANG);
+   				//printf("process id %d\n",processes[i]);
+   			waitpid(processes[i], &status, WNOHANG);
+
+   			//printf("status number is %d\n", status);
+   			if(WIFEXITED(status)) {
+   				//printf("process killed %d\n", i);
+   				processes[i] = -1;
+
+   			
+   			}
    		}
 
 		printf("mysh (%d)> ", counter);
@@ -398,20 +438,27 @@ int loop() {
 
 
 		//TODO: Handle only enter
+		for(int i = 0; i < length+1; i++) {
+			free(args[i]);
+		}
+		free(args);
+		free(tempInput);
 	}
-
+	free(input);
+	free(savedCom);
 
 
 }
 
 int main(int argc, char* argv[]) {
 	processes = (int*) malloc(20*sizeof(int));
-	memset(processes, -1, 20);
+	memset(processes, -1, 20*sizeof(int));
 	if(argc != 1) {
 		char error_message[30] = "An error has occurred\n";
 		write(STDERR_FILENO, error_message, strlen(error_message));
 		exit(1);
 	}
 	loop();
+	free(processes);
 	return 0;
 }
